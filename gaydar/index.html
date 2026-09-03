@@ -396,7 +396,14 @@ $("closeSheet").onclick = function(){ $("sheet").classList.remove("on"); };
 $("sheet").onclick = function(e){ if(e.target === $("sheet")) $("sheet").classList.remove("on"); };
 
 /* ---------- 1 -> 2 ---------- */
-$("go").onclick = function(){ show("s-cam"); startCamera(); };
+$("go").onclick = function(){
+  /* iOS starts an AudioContext suspended unless it is created and resumed
+     inside a user gesture, and the countdown beeps fire off a timer. Open it
+     here, on the first real tap, so sound works for the rest of the session. */
+  sfx();
+  show("s-cam");
+  startCamera();
+};
 
 /* ---------- camera ---------- */
 function startCamera(){
@@ -425,14 +432,14 @@ function stopCamera(){
    back to frame-difference stillness, which is a genuine signal — the
    reticle only locks when the subject actually stops moving. */
 var faceDet = null, lockTimer = null, lockRun = 0, prevFrame = null, armed = false;
-var diffHist = [], lockStart = 0;
+var diffHist = [], lockStart = 0, cntTimer = null, captured = false;
 if("FaceDetector" in window){
   try{ faceDet = new FaceDetector({ fastMode:true, maxDetectedFaces:1 }); }catch(e){ faceDet = null; }
 }
 var lockCv = document.createElement("canvas"); lockCv.width = 64; lockCv.height = 48;
 
 function startLock(){
-  stopLock(); armed = false; lockRun = 0; prevFrame = null;
+  stopLock(); armed = false; captured = false; lockRun = 0; prevFrame = null;
   diffHist = []; lockStart = performance.now();
   lockTimer = setInterval(checkLock, 260);
 }
@@ -440,6 +447,13 @@ function stopLock(){
   if(lockTimer){ clearInterval(lockTimer); lockTimer = null; }
   var r = document.querySelector(".reticle");
   if(r) r.classList.remove("lock");
+}
+/* Cancels an in-flight countdown. Without this, tapping Capture mid-countdown
+   captures immediately and the timer fires a second capture a beat later,
+   re-entering the voice screen while the mic is already live. */
+function stopCountdown(){
+  if(cntTimer){ clearInterval(cntTimer); cntTimer = null; }
+  $("cnt").hidden = true;
 }
 function checkLock(){
   var v = $("video");
@@ -486,12 +500,12 @@ function setLock(ok){
   }
 }
 function countdown(){
-  stopLock();
+  stopLock(); stopCountdown();
   var el = $("cnt"), n = 3;
   el.hidden = false; el.textContent = n; beep(520, 0.07, 0.05);
-  var iv = setInterval(function(){
+  cntTimer = setInterval(function(){
     n--;
-    if(n <= 0){ clearInterval(iv); el.hidden = true; doCapture(); }
+    if(n <= 0){ stopCountdown(); doCapture(); }
     else { el.textContent = n; beep(520, 0.07, 0.05); }
   }, 700);
 }
@@ -499,10 +513,11 @@ function countdown(){
 $("file").onchange = function(e){
   var f = e.target.files && e.target.files[0]; if(!f) return;
   var r = new FileReader();
+  captured = true;
   r.onload = function(){ drawImageToShot(r.result, function(){ toVoice(); }); };
   r.readAsDataURL(f);
 };
-$("skipCam").onclick = function(){ makePlaceholder(); toVoice(); };
+$("skipCam").onclick = function(){ captured = true; makePlaceholder(); toVoice(); };
 
 function drawImageToShot(src, done){
   var img = new Image();
@@ -529,9 +544,12 @@ function makePlaceholder(){
   state.photo = c.toDataURL("image/jpeg", .8);
 }
 
-$("snap").onclick = function(){ stopLock(); doCapture(); };
+$("snap").onclick = function(){ stopLock(); stopCountdown(); doCapture(); };
 
 function doCapture(){
+  if(captured) return;          /* one capture per pass through the camera step */
+  captured = true;
+  stopLock(); stopCountdown();
   var v = $("video"), c = $("shot");
   if(!v.videoWidth){ makePlaceholder(); return toVoice(); }
   var W=720, H=960; c.width=W; c.height=H;
