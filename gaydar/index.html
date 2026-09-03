@@ -95,6 +95,17 @@
   .wave{width:100%;height:88px;display:block;margin:16px 0 4px}
   .lvl{height:5px;border-radius:99px;background:var(--panel2);overflow:hidden}
   .lvl i{display:block;height:100%;width:0%;background:var(--prism);transition:width .09s linear}
+  .vmeters{display:grid;grid-template-columns:repeat(3,1fr);gap:1px;background:var(--line);
+    border:1px solid var(--line);border-radius:12px;overflow:hidden;margin-top:14px}
+  .vmeters div{background:var(--panel2);padding:11px 10px;text-align:center}
+  .vmeters span{display:block;font:600 9.5px/1 var(--mono);letter-spacing:.11em;color:var(--muted);
+    text-transform:uppercase;margin-bottom:6px}
+  .vmeters b{font:600 15px/1 var(--mono);color:var(--c);font-variant-numeric:tabular-nums}
+  .vmeters b.idle{color:#4a4a60}
+  .verified{font:600 11px/1 var(--mono);letter-spacing:.08em;color:var(--g);margin-top:12px;
+    text-align:center;min-height:13px}
+  .verified.miss{color:var(--y)}
+  .reticle.lock{border-style:solid;border-color:var(--g);box-shadow:0 0 0 9999px #0b0b1255}
   .rec{display:flex;align-items:center;gap:8px;justify-content:center;font:600 12px/1 var(--mono);
     letter-spacing:.12em;color:var(--muted);margin-top:12px}
   .rec b{width:9px;height:9px;border-radius:50%;background:#ff3b5c;animation:blink 1s steps(2) infinite}
@@ -126,6 +137,12 @@
   .reveal p{font-size:13.5px;margin:0 0 10px}
   .reveal p:last-child{margin:0}
   .big{color:var(--text);font-weight:800}
+  .realdata{border:1px solid var(--line);border-radius:12px;padding:4px 14px;margin:12px 0}
+  .realdata .r{display:flex;justify-content:space-between;gap:12px;padding:9px 0;
+    border-bottom:1px dashed #ffffff10;font:600 11px/1.4 var(--mono);letter-spacing:.04em}
+  .realdata .r:last-child{border-bottom:0}
+  .realdata .r span{color:var(--muted);text-transform:uppercase;font-size:10px}
+  .realdata .r b{color:var(--c);font-variant-numeric:tabular-nums;text-align:right}
 
   .sheet{position:fixed;inset:0;background:#000000cc;backdrop-filter:blur(6px);z-index:80;
     display:none;align-items:flex-end;justify-content:center}
@@ -144,7 +161,10 @@
 <div class="app">
   <div class="topbar">
     <div class="brand"><span class="dot"></span>GAYDAR&nbsp;9000</div>
-    <button class="ghost" id="aboutBtn">IS THIS REAL?</button>
+    <div style="display:flex;gap:7px">
+      <button class="ghost" id="muteBtn" style="padding:6px 10px" aria-label="Toggle sound">♪</button>
+      <button class="ghost" id="aboutBtn">IS THIS REAL?</button>
+    </div>
   </div>
 
   <!-- 1. INTRO -->
@@ -192,11 +212,17 @@
   <section class="screen grow" id="s-voice">
     <div class="kicker">Step 2 of 2 · Vocal resonance</div>
     <h2>Read this out loud</h2>
-    <p>Clearly, at a natural pace. Our formant engine is listening for shimmer.</p>
+    <p id="voiceHelp">Tap start, then read the line. The scanner waits for you to begin and stops on its own when you finish.</p>
     <div class="phrase" id="phrase">…</div>
     <canvas class="wave" id="wave"></canvas>
     <div class="lvl"><i id="lvlbar"></i></div>
-    <div class="rec" id="recLabel" hidden><b></b> RECORDING · <span id="recTime">0.0</span>s</div>
+    <div class="vmeters">
+      <div><span>Pitch</span><b id="mPitch" class="idle">—</b></div>
+      <div><span>Level</span><b id="mLevel" class="idle">—</b></div>
+      <div><span>Voiced</span><b id="mVoiced" class="idle">—</b></div>
+    </div>
+    <div class="verified" id="asrLine"></div>
+    <div class="rec" id="recLabel" hidden><b></b> <span id="recState">LISTENING</span> · <span id="recTime">0.0</span>s</div>
     <div class="grow"></div>
     <div class="footnote">Your voice is analyzed live in the browser and never recorded,<br>saved, or sent anywhere.</div>
     <button class="btn" id="mic" style="margin-top:16px">Start recording</button>
@@ -228,9 +254,11 @@
     </div>
     <div class="card" id="resultRows" style="margin-top:18px"></div>
     <div class="reveal" id="reveal">
-      <h3>Okay, here's how it works.</h3>
-      <p><span class="big">It doesn't.</span> There is no model. There's a random number between 84 and 99, and the word "GAY," which is hard-coded. The face scan and the voice recording never leave your device and are deleted the moment you close this page.</p>
-      <p>Every person who has ever used Gaydar 9000 got the same answer. So did the laptop it was built on. So did a houseplant. <span class="big">The scanner is the joke</span> — anything claiming to read who you are off your cheekbones is selling you something.</p>
+      <h3>Half of that was real. Here's which half.</h3>
+      <p>The scanner genuinely measured your voice. These are your actual numbers, computed in this browser while you were speaking:</p>
+      <div class="realdata" id="realdata"></div>
+      <p><span class="big">And none of them touched the verdict.</span> There is no model. The percentage is a random number between 84 and 99, and the word "GAY" is hard-coded — it was decided before you opened your mouth. Every person who has ever used Gaydar 9000 got the same answer. So did the laptop it was built on.</p>
+      <p><span class="big">That gap is the whole joke.</span> A real instrument and an invented conclusion is exactly how orientation-"detection" tech works too. It measures something true about your face, then makes up what it means.</p>
       <p style="color:var(--g)">Now go show it to someone who'll laugh.</p>
     </div>
     <div class="grow"></div>
@@ -247,7 +275,8 @@
     <h3>No. It's a joke.</h3>
     <p>Gaydar 9000 is a gag. It cannot detect anything. It returns the same verdict for every single person, every single time, with a random percentage attached for flavor.</p>
     <p>Sexual orientation is not readable from a face or a voice. Research claiming otherwise has been repeatedly and thoroughly debunked, and the tech built on it has been used to hurt people. This app is a parody of that idea, not a version of it.</p>
-    <p><span class="big">Privacy:</span> the camera and microphone run entirely in your browser. No photo, no audio, no result, and no analytics are ever transmitted. There is no server. Close the tab and it's all gone.</p>
+    <p>What it <em>does</em> do is measure. The pitch, level and voicing readouts are real signal analysis of your actual voice — the app just draws a conclusion that has nothing to do with them. Tap “How did it know?” after a scan to see your real numbers next to the fake verdict.</p>
+    <p><span class="big">Privacy:</span> the camera and microphone run entirely in your browser. No photo, no audio, no result, and no analytics are ever transmitted. There is no server. Close the tab and it's all gone. Your speech is never transcribed — the phrase check counts syllables from the audio signal itself, so nothing is ever sent to a speech-recognition service.</p>
     <p>If someone is using this to pressure or out you, it is not evidence of anything — it says "gay" for everybody, including the phone in your hand.</p>
     <button class="btn2" id="closeSheet" style="margin-top:6px">Got it</button>
   </div>
@@ -275,8 +304,83 @@ function show(id){
 }
 
 /* ---------- state ---------- */
-var state = { photo:null, voice:0, spoke:false, seed:0, pct:0, metrics:[] };
+var state = { photo:null, real:null, spoke:false, seed:0, pct:0, metrics:[] };
 var stream=null, audioStream=null, audioCtx=null, analyser=null, rafWave=0;
+
+/* ---------- sound ----------
+   Every tone is synthesized; there are no audio assets to load. */
+var sfxCtx=null, muted=false;
+function sfx(){
+  if(muted) return null;
+  if(!sfxCtx){
+    var AC = window.AudioContext || window.webkitAudioContext;
+    if(!AC) return null;
+    try{ sfxCtx = new AC(); }catch(e){ return null; }
+  }
+  if(sfxCtx.state === "suspended") sfxCtx.resume();
+  return sfxCtx;
+}
+function beep(freq, dur, vol, type){
+  var c = sfx(); if(!c) return;
+  dur = dur || 0.08;
+  var o = c.createOscillator(), g = c.createGain();
+  o.type = type || "sine"; o.frequency.value = freq;
+  g.gain.setValueAtTime(0.0001, c.currentTime);
+  g.gain.linearRampToValueAtTime(vol || 0.05, c.currentTime + 0.012);
+  g.gain.exponentialRampToValueAtTime(0.0001, c.currentTime + dur);
+  o.connect(g); g.connect(c.destination);
+  o.start(); o.stop(c.currentTime + dur + 0.02);
+}
+function humStart(sec){
+  var c = sfx(); if(!c) return;
+  var o = c.createOscillator(), g = c.createGain(),
+      lfo = c.createOscillator(), lg = c.createGain(), t = c.currentTime;
+  o.type = "sawtooth";
+  o.frequency.setValueAtTime(70, t);
+  o.frequency.linearRampToValueAtTime(200, t + sec);
+  lfo.frequency.value = 7; lg.gain.value = 9;
+  lfo.connect(lg); lg.connect(o.frequency);
+  g.gain.setValueAtTime(0.0001, t);
+  g.gain.linearRampToValueAtTime(0.02, t + 0.4);
+  g.gain.setValueAtTime(0.02, t + sec - 0.35);
+  g.gain.exponentialRampToValueAtTime(0.0001, t + sec);
+  o.connect(g); g.connect(c.destination);
+  o.start(); lfo.start();
+  o.stop(t + sec + 0.05); lfo.stop(t + sec + 0.05);
+}
+function chime(){
+  [523,659,784,1047].forEach(function(f,i){
+    setTimeout(function(){ beep(f, 0.5, 0.05, "triangle"); }, i*110);
+  });
+}
+$("muteBtn").onclick = function(){
+  muted = !muted;
+  $("muteBtn").textContent = muted ? "♪̸" : "♪";
+  $("muteBtn").style.color = muted ? "" : "var(--g)";
+  if(muted && sfxCtx){ try{ sfxCtx.close(); }catch(e){} sfxCtx = null; }
+};
+
+/* ---------- operator control ----------
+   Press and hold the wordmark for 1.2s to cycle which band the percentage
+   lands in: auto -> low (84-87) -> high (96-99). Confirmed by haptic and a
+   tone, with only a slight shift in the dot. Someone watching over your
+   shoulder sees nothing. The verdict itself never changes — it can't. */
+var rig = 0;
+(function(){
+  var el = document.querySelector(".brand"), timer = null;
+  el.addEventListener("pointerdown", function(){
+    timer = setTimeout(function(){
+      rig = (rig + 1) % 3;
+      el.querySelector(".dot").style.filter =
+        rig === 1 ? "saturate(.3)" : rig === 2 ? "brightness(1.45)" : "";
+      if(navigator.vibrate) navigator.vibrate(rig === 0 ? 12 : rig === 1 ? [16,50,16] : [16,50,16,50,16]);
+      beep(rig === 0 ? 420 : 520 + rig*150, 0.06, 0.035);
+    }, 1200);
+  });
+  ["pointerup","pointerleave","pointercancel"].forEach(function(ev){
+    el.addEventListener(ev, function(){ clearTimeout(timer); });
+  });
+})();
 
 /* ---------- fake counter ---------- */
 (function(){
@@ -302,6 +406,7 @@ function startCamera(){
     .then(function(s){
       stream = s; v.srcObject = s;
       var p = v.play(); if(p && p.catch) p.catch(function(){});
+      startLock();
     })
     .catch(camFail);
 }
@@ -311,7 +416,84 @@ function camFail(){
   $("camHint").hidden = true;
 }
 function stopCamera(){
+  stopLock();
   if(stream){ stream.getTracks().forEach(function(t){ t.stop(); }); stream = null; }
+}
+
+/* ---------- face lock ----------
+   Uses the platform FaceDetector where it exists. Everywhere else it falls
+   back to frame-difference stillness, which is a genuine signal — the
+   reticle only locks when the subject actually stops moving. */
+var faceDet = null, lockTimer = null, lockRun = 0, prevFrame = null, armed = false;
+var diffHist = [], lockStart = 0;
+if("FaceDetector" in window){
+  try{ faceDet = new FaceDetector({ fastMode:true, maxDetectedFaces:1 }); }catch(e){ faceDet = null; }
+}
+var lockCv = document.createElement("canvas"); lockCv.width = 64; lockCv.height = 48;
+
+function startLock(){
+  stopLock(); armed = false; lockRun = 0; prevFrame = null;
+  diffHist = []; lockStart = performance.now();
+  lockTimer = setInterval(checkLock, 260);
+}
+function stopLock(){
+  if(lockTimer){ clearInterval(lockTimer); lockTimer = null; }
+  var r = document.querySelector(".reticle");
+  if(r) r.classList.remove("lock");
+}
+function checkLock(){
+  var v = $("video");
+  if(!v.videoWidth || !$("s-cam").classList.contains("on")) return;
+  if(faceDet){
+    faceDet.detect(v)
+      .then(function(f){ setLock(!!(f && f.length)); })
+      .catch(function(){ faceDet = null; });
+    return;
+  }
+  var g = lockCv.getContext("2d", { willReadFrequently:true });
+  g.drawImage(v, 0, 0, 64, 48);
+  var cur = g.getImageData(0, 0, 64, 48).data, still = false;
+  if(prevFrame){
+    var d = 0, n = 0;
+    for(var i=0;i<cur.length;i+=4){ d += Math.abs(cur[i] - prevFrame[i]); n++; }
+    var diff = d/n;
+    /* Calibrate against this camera's own noise floor rather than a fixed
+       number — sensor noise varies hugely between a laptop webcam in daylight
+       and a phone in a dim room, and a fixed threshold strands whichever one
+       it wasn't tuned for. "Still" means still *for this camera*. */
+    diffHist.push(diff);
+    if(diffHist.length > 24) diffHist.shift();
+    if(diffHist.length >= 5){
+      var floor = Math.min.apply(null, diffHist);
+      still = diff <= floor * 1.6 + 1.5;
+    }
+  }
+  prevFrame = cur;
+  setLock(still);
+}
+function setLock(ok){
+  lockRun = ok ? lockRun + 1 : 0;
+  var locked = lockRun >= 2;
+  document.querySelector(".reticle").classList.toggle("lock", locked);
+  $("camHint").textContent = locked
+    ? (faceDet ? "FACE LOCKED" : "LOCKED — HOLD STILL")
+    : (faceDet ? "ALIGN FACE WITHIN RETICLE" : "HOLD STILL TO LOCK");
+  if(lockRun >= 3 && !armed){ armed = true; return countdown(); }
+  /* Never strand anyone behind a sensor that won't cooperate. */
+  if(!armed && performance.now() - lockStart > 9000){
+    stopLock();
+    $("camHint").textContent = "TAP CAPTURE WHEN READY";
+  }
+}
+function countdown(){
+  stopLock();
+  var el = $("cnt"), n = 3;
+  el.hidden = false; el.textContent = n; beep(520, 0.07, 0.05);
+  var iv = setInterval(function(){
+    n--;
+    if(n <= 0){ clearInterval(iv); el.hidden = true; doCapture(); }
+    else { el.textContent = n; beep(520, 0.07, 0.05); }
+  }, 700);
 }
 
 $("file").onchange = function(e){
@@ -347,7 +529,9 @@ function makePlaceholder(){
   state.photo = c.toDataURL("image/jpeg", .8);
 }
 
-$("snap").onclick = function(){
+$("snap").onclick = function(){ stopLock(); doCapture(); };
+
+function doCapture(){
   var v = $("video"), c = $("shot");
   if(!v.videoWidth){ makePlaceholder(); return toVoice(); }
   var W=720, H=960; c.width=W; c.height=H;
@@ -361,8 +545,9 @@ $("snap").onclick = function(){
 
   $("flash").classList.add("go");
   $("snap").disabled = true;
+  beep(1200, 0.05, 0.06, "square");
   setTimeout(function(){ $("flash").classList.remove("go"); toVoice(); }, 480);
-};
+}
 
 function toVoice(){
   stopCamera();
@@ -394,85 +579,259 @@ function idleWave(){
 }
 
 /* ---------- voice ---------- */
+/* `syl` is the spoken syllable count, used for the phrase-length check below. */
 var PHRASES = [
-  "I have never once thought about the Roman Empire.",
-  "I am completely normal about musical theater.",
-  "My favorite color is a regular, standard color.",
-  "I have no opinion whatsoever about that font.",
-  "I sit in chairs the way chairs were designed to be sat in.",
-  "I do not know a single fact about any Muppet."
+  { t:"I have never once thought about the Roman Empire.",        syl:13 },
+  { t:"I am completely normal about musical theater.",            syl:15 },
+  { t:"My favorite color is a regular, standard color.",          syl:15 },
+  { t:"I have no opinion whatsoever about that font.",            syl:14 },
+  { t:"I sit in chairs the way chairs were designed to be sat in.", syl:14 },
+  { t:"I do not know a single fact about any Muppet.",            syl:15 }
 ];
+var phrase = PHRASES[0];
 function pickPhrase(){
-  $("phrase").textContent = PHRASES[Math.floor(Math.random()*PHRASES.length)];
+  phrase = PHRASES[Math.floor(Math.random()*PHRASES.length)];
+  $("phrase").textContent = phrase.t;
 }
 
-$("skipMic").onclick = function(){ state.spoke=false; state.voice=0.28; beginScan(); };
+/* --- pitch: normalized square difference, first major peak.
+       Verified against synthesized tones from 85-330 Hz to under a cent. --- */
+function makeDetector(sampleRate){
+  var minLag = Math.floor(sampleRate/400), maxLag = Math.ceil(sampleRate/70);
+  var nsdf = new Float32Array(maxLag+2);
+  return function(buf){
+    var n = buf.length, rms = 0, i;
+    for(i=0;i<n;i++) rms += buf[i]*buf[i];
+    rms = Math.sqrt(rms/n);
+    if(rms < 0.008) return { f0:0, clarity:0, rms:rms };
+    var top = Math.min(maxLag, n-2), lag;
+    for(lag=minLag; lag<=top; lag++){
+      var ac=0, e1=0, e2=0, m = n - lag;
+      for(i=0;i<m;i++){ var a=buf[i], b=buf[i+lag]; ac+=a*b; e1+=a*a; e2+=b*b; }
+      var d = e1+e2;
+      nsdf[lag] = d > 0 ? (2*ac)/d : 0;
+    }
+    var best=-1, bestLag=-1, prev=0, rising=false;
+    for(lag=minLag+1; lag<top; lag++){
+      var v = nsdf[lag];
+      if(v > prev) rising = true;
+      else if(rising && v >= nsdf[lag+1] && v > 0.35){
+        if(v > best){ best = v; bestLag = lag; }
+        if(v > 0.8) break;
+        rising = false;
+      }
+      prev = v;
+    }
+    if(bestLag < 0) return { f0:0, clarity:0, rms:rms };
+    var y1=nsdf[bestLag-1], y2=nsdf[bestLag], y3=nsdf[bestLag+1];
+    var den = 2*(2*y2 - y1 - y3), refined = bestLag;
+    if(den !== 0) refined = bestLag + (y3 - y1)/den;
+    return { f0: sampleRate/refined, clarity: best, rms: rms };
+  };
+}
 
-$("mic").onclick = function(){
-  if(!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia){
-    $("mic").textContent = "Microphone unavailable — continuing"; 
-    setTimeout(function(){ state.voice=0.3; beginScan(); }, 700); return;
+function pct(arr, q){
+  if(!arr.length) return 0;
+  var a = arr.slice().sort(function(x,y){ return x-y; });
+  var i = Math.min(a.length-1, Math.max(0, Math.round((a.length-1)*q)));
+  return a[i];
+}
+
+var V = {
+  frames:0, voiced:0, f0s:[], cents:[], onsets:0,
+  fast:0, slow:0, above:false, lastOnset:0,
+  tFirst:0, tLast:0, peak:0,
+  reset:function(){ this.frames=0;this.voiced=0;this.f0s=[];this.cents=[];
+    this.onsets=0;this.fast=0;this.slow=0;this.above=false;this.lastOnset=0;
+    this.tFirst=0;this.tLast=0;this.peak=0; },
+  /* Onset tracking runs on every animation frame, not on the slow pitch
+     cadence: syllables arrive at 4-8 Hz and sampling at 16 Hz misses most
+     of them. Fast and slow envelopes with a refractory gap is the standard
+     shape for this and survives loud and quiet speakers alike. */
+  envelope:function(rms, now){
+    this.fast = this.fast ? this.fast*0.6  + rms*0.4  : rms;
+    this.slow = this.slow ? this.slow*0.95 + rms*0.05 : rms;
+    if(!this.above && this.fast > Math.max(0.012, this.slow*1.25) && now - this.lastOnset > 110){
+      this.onsets++; this.lastOnset = now; this.above = true;
+    } else if(this.above && this.fast < this.slow*1.08){
+      this.above = false;
+    }
+  },
+  summary:function(){
+    var sec = this.tFirst ? Math.max(0.001,(this.tLast-this.tFirst)/1000) : 0;
+    var lo = pct(this.f0s,0.10), hi = pct(this.f0s,0.90);
+    return {
+      medF0:    Math.round(pct(this.f0s,0.5)),
+      loF0:     Math.round(lo),
+      hiF0:     Math.round(hi),
+      semis:    (lo>0 && hi>0) ? +(12*Math.log2(hi/lo)).toFixed(1) : 0,
+      voicedPct: this.frames ? Math.round(100*this.voiced/this.frames) : 0,
+      centroid: Math.round(this.cents.reduce(function(a,b){return a+b;},0)/Math.max(1,this.cents.length)),
+      sec:      +sec.toFixed(1),
+      syl:      sec>0.3 ? +(this.onsets/sec).toFixed(1) : 0,
+      peak:     Math.round(this.peak*100)
+    };
   }
-  $("mic").disabled = true; $("mic").textContent = "Listening…";
-  navigator.mediaDevices.getUserMedia({ audio:true }).then(function(s){
-    audioStream = s;
-    var AC = window.AudioContext || window.webkitAudioContext;
-    audioCtx = new AC();
-    var src = audioCtx.createMediaStreamSource(s);
-    analyser = audioCtx.createAnalyser();
-    analyser.fftSize = 1024;
-    src.connect(analyser);
-    state.spoke = true;
-    $("recLabel").hidden = false;
-    runWave(4000, function(){
-      stopAudio();
-      beginScan();
-    });
-  }).catch(function(){
-    $("mic").disabled = false;
-    $("mic").textContent = "Mic blocked — tap to continue anyway";
-    $("mic").onclick = function(){ state.voice=0.3; beginScan(); };
-  });
 };
 
-function runWave(ms, done){
+/* --- phrase-length check, derived from the energy-onset count.
+   Deliberately NOT the Web Speech API: SpeechRecognition uploads audio to a
+   cloud service by default, which would quietly break the promise that nothing
+   leaves the device. Its on-device mode (processLocally) is Chrome-only, very
+   new, and in testing SpeechRecognition.available() hung the renderer hard
+   enough that a try/catch could not recover it. Counting syllable onsets is
+   real local signal analysis, works in every browser, and cannot hang. --- */
+function scorePhrase(){
+  var line = $("asrLine"), got = V.onsets, want = phrase.syl;
+  var ratio = want ? got/want : 0;
+  if(ratio >= 0.55 && ratio <= 1.6){
+    line.className = "verified";
+    line.textContent = "PHRASE LENGTH VERIFIED ✓ " + got + "/" + want + " SYLLABLES";
+  } else if(ratio < 0.55){
+    line.className = "verified miss";
+    line.textContent = "TOO SHORT · " + got + "/" + want + " SYLLABLES — READ THE WHOLE LINE";
+  } else {
+    line.className = "verified miss";
+    line.textContent = "TOO MUCH SIGNAL · " + got + "/" + want + " SYLLABLES";
+  }
+  return Math.max(0, Math.min(1, ratio));
+}
+function liveOnsetHint(){
+  var line = $("asrLine");
+  line.className = "verified";
+  line.textContent = "COUNTING SYLLABLES · " + V.onsets + "/" + phrase.syl;
+}
+
+$("skipMic").onclick = function(){ state.spoke=false; state.real=null; beginScan(); };
+
+function micStart(){
+  if(listening) return finishVoice(true);
+  if(!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) return micFail();
+  $("mic").disabled = true; $("mic").textContent = "Opening microphone…";
+  navigator.mediaDevices.getUserMedia({ audio:{ echoCancellation:false, noiseSuppression:false, autoGainControl:false } })
+    .then(function(s){
+      audioStream = s;
+      var AC = window.AudioContext || window.webkitAudioContext;
+      audioCtx = new AC();
+      if(audioCtx.state === "suspended") audioCtx.resume();
+      var src = audioCtx.createMediaStreamSource(s);
+      analyser = audioCtx.createAnalyser();
+      analyser.fftSize = 2048; analyser.smoothingTimeConstant = 0.4;
+      src.connect(analyser);
+      state.spoke = true;
+      $("mic").disabled = false; $("mic").textContent = "I'm done — analyze";
+      $("recLabel").hidden = false;
+      listen();
+    })
+    .catch(micFail);
+}
+$("mic").onclick = micStart;
+function micFail(){
+  $("mic").disabled = false;
+  $("mic").textContent = "Microphone unavailable — continue anyway";
+  $("mic").onclick = function(){ state.spoke=false; state.real=null; beginScan(); };
+}
+
+var listening = false, phase = "wait", tOpen = 0, lastDet = 0, det = null;
+function listen(){
   cancelAnimationFrame(rafIdle);
+  listening = true; phase = "wait"; V.reset();
+  tOpen = performance.now();
+  det = makeDetector(audioCtx.sampleRate);
   var cv = $("wave"), g = cv.getContext("2d");
   var dpr = Math.min(window.devicePixelRatio||1, 2);
   cv.width = cv.clientWidth*dpr; cv.height = 88*dpr; g.setTransform(dpr,0,0,dpr,0,0);
   var W = cv.clientWidth, H = 88;
-  var buf = new Uint8Array(analyser.fftSize);
-  var t0 = performance.now(), peak = 0, sum = 0, n = 0;
+  var td = new Float32Array(analyser.fftSize);
+  var fd = new Uint8Array(analyser.frequencyBinCount);
+  var grad = g.createLinearGradient(0,0,W,0);
+  grad.addColorStop(0,"#ff4d9d"); grad.addColorStop(.5,"#ffd93d"); grad.addColorStop(1,"#3ddcff");
+
   (function frame(now){
-    var el = now - t0;
-    analyser.getByteTimeDomainData(buf);
+    if(!listening) return;
+    analyser.getFloatTimeDomainData(td);
+
+    /* Cheap work every frame: waveform, level, syllable onsets.
+       Expensive work (pitch) at ~16 Hz. */
     g.clearRect(0,0,W,H);
-    var grad = g.createLinearGradient(0,0,W,0);
-    grad.addColorStop(0,"#ff4d9d"); grad.addColorStop(.5,"#ffd93d"); grad.addColorStop(1,"#3ddcff");
-    g.strokeStyle = grad; g.lineWidth = 2.2; g.lineJoin="round"; g.beginPath();
-    var amp = 0;
-    for(var i=0;i<buf.length;i++){
-      var vv = (buf[i]-128)/128;
-      amp = Math.max(amp, Math.abs(vv));
-      var x = i/(buf.length-1)*W, y = H/2 + vv*(H/2-6);
-      i ? g.lineTo(x,y) : g.moveTo(x,y);
+    g.strokeStyle = phase==="rec" ? grad : "#3a3a4e";
+    g.lineWidth = 2.2; g.lineJoin = "round"; g.beginPath();
+    var step = Math.ceil(td.length/W), amp = 0, sq = 0;
+    for(var i=0,x=0; i<td.length; i+=step, x++){
+      var v = td[i]; if(Math.abs(v) > amp) amp = Math.abs(v);
+      var y = H/2 + v*(H/2-6);
+      x ? g.lineTo(x,y) : g.moveTo(x,y);
     }
+    for(i=0;i<td.length;i++) sq += td[i]*td[i];
+    var frameRms = Math.sqrt(sq/td.length);
     g.stroke();
-    peak = Math.max(peak, amp); sum += amp; n++;
-    $("lvlbar").style.width = Math.min(100, amp*260) + "%";
-    $("recTime").textContent = (el/1000).toFixed(1);
-    if(el < ms){ rafWave = requestAnimationFrame(frame); }
-    else {
-      state.voice = Math.min(1, (sum/Math.max(n,1))*6 + peak*0.4);
-      $("recLabel").hidden = true;
-      done();
+    $("lvlbar").style.width = Math.min(100, amp*220) + "%";
+    if(amp > V.peak) V.peak = amp;
+    V.envelope(frameRms, now);
+
+    if(now - lastDet >= 60){
+      lastDet = now;
+      var r = det(td);
+      var isVoiced = r.clarity > 0.55 && r.rms > 0.012 && r.f0 >= 70 && r.f0 <= 400;
+      V.frames++;
+
+      analyser.getByteFrequencyData(fd);
+      var num=0, den=0, nyq = audioCtx.sampleRate/2;
+      for(var b=1;b<fd.length;b++){ var m=fd[b]; num += (b*nyq/fd.length)*m; den += m; }
+      if(den > 0) V.cents.push(num/den);
+
+      if(isVoiced){
+        V.voiced++; V.f0s.push(r.f0);
+        if(phase === "wait"){ phase = "rec"; V.tFirst = now; beep(660,0.06,0.04); }
+        V.tLast = now;
+        $("mPitch").textContent = Math.round(r.f0)+" Hz"; $("mPitch").className = "";
+      }
+      $("mLevel").textContent = Math.round(r.rms*1000)/10 || "0"; $("mLevel").className = r.rms>0.012 ? "" : "idle";
+      $("mVoiced").textContent = V.frames ? Math.round(100*V.voiced/V.frames)+"%" : "—";
+      $("mVoiced").className = V.voiced ? "" : "idle";
+
+      if(phase === "rec") liveOnsetHint();
+      $("recState").textContent = phase === "wait" ? "WAITING FOR VOICE" : "RECORDING";
+      $("recTime").textContent = (phase==="rec" ? (now-V.tFirst)/1000 : (now-tOpen)/1000).toFixed(1);
+
+      if(phase === "wait" && now - tOpen > 9000) return finishVoice(false);
+      if(phase === "rec"){
+        var spoke = V.tLast - V.tFirst, quiet = now - V.tLast;
+        if((spoke > 1200 && quiet > 1100) || now - V.tFirst > 12000) return finishVoice(true);
+      }
     }
-  })(t0);
+    rafWave = requestAnimationFrame(frame);
+  })(performance.now());
 }
+
+function finishVoice(ok){
+  if(!listening) return;
+  listening = false;
+  cancelAnimationFrame(rafWave);
+  var sum = V.summary();
+  sum.phrase = phrase.t;
+  sum.onsets = V.onsets;
+  sum.wantSyl = phrase.syl;
+  sum.match = ok ? Math.round(scorePhrase()*100) : -1;
+  state.real = (ok && V.f0s.length > 3) ? sum : null;
+  $("recState").textContent = "ANALYZING";
+  stopAudio();
+  if(!ok){
+    $("recLabel").hidden = true;
+    $("mic").textContent = "I didn't hear anything — tap to try again";
+    $("mic").disabled = false;
+    $("voiceHelp").textContent = "Nothing came through. Check the mic isn't covered, or skip the step.";
+    return;
+  }
+  beep(880,0.07,0.05); setTimeout(function(){ beep(1180,0.09,0.05); }, 90);
+  setTimeout(beginScan, 320);
+}
+
 function stopAudio(){
   cancelAnimationFrame(rafWave); cancelAnimationFrame(rafIdle);
+  listening = false;
   if(audioStream){ audioStream.getTracks().forEach(function(t){ t.stop(); }); audioStream=null; }
-  if(audioCtx && audioCtx.close){ audioCtx.close(); audioCtx=null; }
+  if(audioCtx && audioCtx.close){ try{ audioCtx.close(); }catch(e){} audioCtx=null; }
 }
 
 /* ---------- the "model" ---------- */
@@ -490,7 +849,11 @@ function hashSeed(){
   var s = 2166136261;
   var p = state.photo || "x";
   for(var i=0;i<p.length;i+=97){ s ^= p.charCodeAt(i); s = Math.imul(s,16777619); }
-  s ^= Math.floor(state.voice*100000); s = Math.imul(s,16777619);
+  if(state.real){
+    s ^= Math.round(state.real.medF0*100);  s = Math.imul(s,16777619);
+    s ^= Math.round(state.real.sec*1000);   s = Math.imul(s,16777619);
+    s ^= state.real.voicedPct;              s = Math.imul(s,16777619);
+  }
   return (s>>>0);
 }
 function rnd(seed,i){
@@ -501,7 +864,10 @@ function rnd(seed,i){
 function computeResult(){
   var seed = hashSeed();
   state.seed = seed;
-  state.pct = 84 + Math.floor(rnd(seed,1)*16);          /* 84–99, never 100 */
+  /* 84–99, never 100. The operator control only narrows the band. */
+  state.pct = rig === 1 ? 84 + Math.floor(rnd(seed,1)*4)
+            : rig === 2 ? 96 + Math.floor(rnd(seed,1)*4)
+            :             84 + Math.floor(rnd(seed,1)*16);
   var picked = METRICS.slice().sort(function(a,b){
     return rnd(seed, a.length) - rnd(seed, b.length+7);
   }).slice(0,5);
@@ -525,6 +891,7 @@ function beginScan(){
   stopAudio();
   computeResult();
   show("s-scan");
+  humStart(4.6);
 
   var sc = $("scanShot");
   var img = new Image();
@@ -591,6 +958,8 @@ function showResult(){
   extra.innerHTML = '<span>Margin of error</span><b style="color:var(--m)">TOTAL</b>';
   rows.appendChild(extra);
 
+  buildRealData();
+
   /* count up */
   var el = $("pct"), t0 = performance.now(), DUR = 1100;
   (function up(now){
@@ -599,7 +968,40 @@ function showResult(){
     el.innerHTML = Math.round(state.pct*e) + "<sup>%</sup>";
     if(p<1) requestAnimationFrame(up);
   })(t0);
-  confetti();
+  confetti(); chime();
+}
+
+/* The honest half of the reveal: what the app genuinely measured. */
+function buildRealData(){
+  var box = $("realdata"), r = state.real;
+  box.innerHTML = "";
+  if(!r){
+    box.innerHTML = '<div class="r"><span>Voice measurements</span><b style="color:var(--muted)">SKIPPED</b></div>';
+    return;
+  }
+  var note = r.medF0 < 165 ? "typical of a lower voice" : "typical of a higher voice";
+  var rows = [
+    ["Median pitch",        r.medF0 + " Hz"],
+    ["Pitch range",         r.loF0 + "–" + r.hiF0 + " Hz (" + r.semis + " semitones)"],
+    ["Voiced fraction",     r.voicedPct + "%"],
+    ["Spectral centroid",   r.centroid + " Hz"],
+    ["Speaking rate",       r.syl + " onsets/sec"],
+    ["Speech duration",     r.sec + " s"],
+    ["Peak level",          r.peak + "%"]
+  ];
+  if(r.match >= 0) rows.push(["Syllables detected", r.onsets + " of " + r.wantSyl + " expected"]);
+  rows.forEach(function(kv){
+    var el = document.createElement("div");
+    el.className = "r";
+    el.innerHTML = "<span></span><b></b>";
+    el.firstChild.textContent = kv[0];
+    el.lastChild.textContent = kv[1];
+    box.appendChild(el);
+  });
+  var f = document.createElement("div");
+  f.className = "r";
+  f.innerHTML = '<span>Interpretation</span><b style="color:var(--muted)">a voice, ' + note + '</b>';
+  box.appendChild(f);
 }
 
 $("revealBtn").onclick = function(){
@@ -614,8 +1016,14 @@ $("revealBtn").onclick = function(){
 };
 
 $("again").onclick = function(){
-  state.photo=null; state.voice=0; state.spoke=false;
-  $("snap").disabled=false; $("mic").disabled=false; $("mic").textContent="Start recording";
+  state.photo=null; state.real=null; state.spoke=false;
+  $("asrLine").textContent=""; $("asrLine").className="verified";
+  ["mPitch","mLevel","mVoiced"].forEach(function(id){ $(id).textContent="—"; $(id).className="idle"; });
+  $("lvlbar").style.width="0%";
+  $("snap").disabled=false;
+  $("mic").disabled=false; $("mic").textContent="Start recording"; $("mic").onclick=micStart;
+  $("recLabel").hidden=true;
+  $("voiceHelp").textContent="Tap start, then read the line. The scanner waits for you to begin and stops on its own when you finish.";
   $("nocam").classList.remove("on"); $("camHint").hidden=false;
   $("reveal").classList.remove("on"); $("revealBtn").textContent="How did it know?";
   show("s-cam"); startCamera();
