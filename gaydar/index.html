@@ -1,0 +1,731 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>GAYDAR 9000 — Certified Nonsense</title>
+<meta name="description" content="A joke app. It scans your face and voice with completely fake science and tells everyone the same thing. Nothing leaves your phone." />
+<meta name="theme-color" content="#0b0b12" />
+<meta property="og:title" content="GAYDAR 9000" />
+<meta property="og:description" content="99.7% accurate*. *It is not accurate. Everyone gets the same result. That's the joke." />
+<link rel="manifest" href="manifest.webmanifest" />
+<style>
+  :root{
+    --bg:#0b0b12; --panel:#13131d; --panel2:#191926; --line:#282838;
+    --text:#f2f2f7; --muted:#9a9ab0;
+    --m:#ff4d9d; --c:#3ddcff; --y:#ffd93d; --g:#5ef0a8;
+    --prism:linear-gradient(100deg,#ff4d9d,#ff9d4d,#ffd93d,#5ef0a8,#3ddcff,#a97dff);
+    --mono:ui-monospace,SFMono-Regular,Menlo,Consolas,"Liberation Mono",monospace;
+  }
+  *{box-sizing:border-box}
+  [hidden]{display:none!important}
+  html,body{margin:0;padding:0;background:var(--bg);color:var(--text);
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Inter,Arial,sans-serif;
+    -webkit-font-smoothing:antialiased;overscroll-behavior:none}
+  body{min-height:100dvh;display:flex;flex-direction:column}
+  button{font:inherit;cursor:pointer}
+
+  .app{width:100%;max-width:460px;margin:0 auto;flex:1;display:flex;flex-direction:column;
+    padding:max(14px,env(safe-area-inset-top)) 16px max(18px,env(safe-area-inset-bottom))}
+
+  .topbar{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:4px 0 12px}
+  .brand{display:flex;align-items:center;gap:9px;font-weight:800;letter-spacing:.02em;font-size:15px}
+  .dot{width:11px;height:11px;border-radius:50%;background:var(--prism);box-shadow:0 0 14px #ff4d9d88}
+  .ghost{background:none;border:1px solid var(--line);color:var(--muted);font-size:11px;
+    padding:6px 11px;border-radius:999px;letter-spacing:.04em}
+  .ghost:hover{color:var(--text);border-color:#3d3d55}
+
+  .screen{display:none!important;flex:1;flex-direction:column;animation:in .28s ease both}
+  .screen.on{display:flex!important}
+  @keyframes in{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+
+  .prism{background:var(--prism);-webkit-background-clip:text;background-clip:text;color:transparent}
+  h1{font-size:44px;line-height:.98;margin:0 0 12px;letter-spacing:-.03em;font-weight:900}
+  h2{font-size:23px;line-height:1.15;margin:0 0 6px;letter-spacing:-.02em;font-weight:800}
+  p{margin:0 0 14px;color:var(--muted);line-height:1.5;font-size:14.5px}
+  .kicker{font:600 11px/1 var(--mono);letter-spacing:.18em;color:var(--muted);text-transform:uppercase;margin-bottom:14px}
+
+  .btn{display:block;width:100%;border:0;border-radius:15px;padding:16px;font-weight:800;font-size:16px;
+    background:var(--prism);color:#0b0b12;letter-spacing:.01em}
+  .btn:active{transform:scale(.985)}
+  .btn[disabled]{opacity:.4}
+  .btn2{display:block;width:100%;background:transparent;border:1px solid var(--line);color:var(--muted);
+    border-radius:15px;padding:13px;font-weight:600;font-size:14px;margin-top:9px}
+  .btn2:hover{color:var(--text);border-color:#3d3d55}
+
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:19px;padding:16px}
+  .grow{flex:1}
+  .center{justify-content:center}
+  .footnote{font-size:11px;color:#63637a;text-align:center;margin-top:14px;line-height:1.5}
+
+  /* stage: camera / photo */
+  .stage{position:relative;width:100%;aspect-ratio:3/4;background:#000;border-radius:20px;overflow:hidden;
+    border:1px solid var(--line)}
+  .stage video,.stage img,.stage canvas.shot{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+  .stage video{transform:scaleX(-1)}
+  .reticle{position:absolute;inset:13% 15%;border-radius:50%/42%;border:2px dashed #ffffff40;pointer-events:none}
+  .reticle::after{content:"";position:absolute;inset:-9px;border-radius:inherit;border:1px solid #ffffff14}
+  .cnt{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
+    font:900 88px/1 var(--mono);color:#fff;text-shadow:0 0 26px #000;pointer-events:none}
+  .flash{position:absolute;inset:0;background:#fff;opacity:0;pointer-events:none}
+  .flash.go{animation:fl .45s ease-out}
+  @keyframes fl{0%{opacity:.92}100%{opacity:0}}
+  .hint{position:absolute;left:0;right:0;bottom:0;padding:22px 14px 13px;
+    background:linear-gradient(transparent,#000c);font:600 12px/1.4 var(--mono);letter-spacing:.06em;
+    color:#dcdce8;text-align:center}
+  .nocam{position:absolute;inset:0;display:none;flex-direction:column;align-items:center;justify-content:center;
+    gap:12px;padding:26px;text-align:center;background:var(--panel2)}
+  .nocam.on{display:flex}
+
+  /* scan overlay */
+  .scanline{position:absolute;left:0;right:0;height:3px;background:var(--c);box-shadow:0 0 22px 5px #3ddcffaa;
+    animation:sweep 1.5s cubic-bezier(.5,0,.5,1) infinite}
+  @keyframes sweep{0%{top:-2%}100%{top:100%}}
+  .grid{position:absolute;inset:0;pointer-events:none;opacity:.5;
+    background:repeating-linear-gradient(0deg,#3ddcff12 0 1px,transparent 1px 22px),
+               repeating-linear-gradient(90deg,#3ddcff12 0 1px,transparent 1px 22px)}
+  .nodes{position:absolute;inset:0;pointer-events:none}
+  .node{position:absolute;width:7px;height:7px;margin:-3.5px;border:1.5px solid var(--c);border-radius:50%;
+    opacity:0;animation:pop .5s ease forwards}
+  @keyframes pop{from{opacity:0;transform:scale(2.4)}to{opacity:.95;transform:scale(1)}}
+
+  /* voice */
+  .phrase{background:var(--panel2);border:1px solid var(--line);border-radius:16px;padding:18px;
+    font-size:20px;line-height:1.35;font-weight:700;letter-spacing:-.01em;text-align:center}
+  .wave{width:100%;height:88px;display:block;margin:16px 0 4px}
+  .lvl{height:5px;border-radius:99px;background:var(--panel2);overflow:hidden}
+  .lvl i{display:block;height:100%;width:0%;background:var(--prism);transition:width .09s linear}
+  .rec{display:flex;align-items:center;gap:8px;justify-content:center;font:600 12px/1 var(--mono);
+    letter-spacing:.12em;color:var(--muted);margin-top:12px}
+  .rec b{width:9px;height:9px;border-radius:50%;background:#ff3b5c;animation:blink 1s steps(2) infinite}
+  @keyframes blink{50%{opacity:.15}}
+
+  /* readouts */
+  .row{display:flex;justify-content:space-between;gap:10px;align-items:baseline;
+    font:600 11.5px/1.6 var(--mono);letter-spacing:.04em;padding:7px 0;border-bottom:1px dashed #ffffff10}
+  .row:last-child{border:0}
+  .row span{color:var(--muted);text-transform:uppercase;font-size:10.5px;flex:1;min-width:0}
+  .row b{color:var(--g);font-variant-numeric:tabular-nums;white-space:nowrap}
+  .bar{height:6px;border-radius:99px;background:var(--panel2);overflow:hidden;margin:16px 0 9px}
+  .bar i{display:block;height:100%;width:0;background:var(--prism);transition:width .3s ease}
+  .status{font:600 11.5px/1.5 var(--mono);letter-spacing:.05em;color:var(--muted);min-height:34px}
+
+  /* result */
+  .verdict{text-align:center;padding:6px 0 2px}
+  .pct{font:900 96px/.9 var(--mono);letter-spacing:-.05em;margin:6px 0 2px}
+  .pct sup{font-size:34px;vertical-align:super;letter-spacing:0}
+  .word{font:900 40px/1 -apple-system,BlinkMacSystemFont,sans-serif;letter-spacing:.14em;margin:4px 0 10px}
+  .stamp{display:inline-block;border:2px solid var(--m);color:var(--m);border-radius:8px;
+    font:800 10px/1 var(--mono);letter-spacing:.16em;padding:7px 10px;transform:rotate(-3deg);opacity:.9}
+  #confetti{position:fixed;inset:0;pointer-events:none;z-index:60}
+
+  .reveal{margin-top:14px;background:var(--panel2);border:1px solid var(--line);border-radius:16px;
+    padding:16px;display:none}
+  .reveal.on{display:block;animation:in .3s ease both}
+  .reveal h3{margin:0 0 8px;font-size:15px}
+  .reveal p{font-size:13.5px;margin:0 0 10px}
+  .reveal p:last-child{margin:0}
+  .big{color:var(--text);font-weight:800}
+
+  .sheet{position:fixed;inset:0;background:#000000cc;backdrop-filter:blur(6px);z-index:80;
+    display:none;align-items:flex-end;justify-content:center}
+  .sheet.on{display:flex}
+  .sheet .in{background:var(--panel);border:1px solid var(--line);border-radius:22px 22px 0 0;
+    width:100%;max-width:460px;padding:22px 18px max(22px,env(safe-area-inset-bottom));max-height:86dvh;overflow:auto}
+  .sheet h3{margin:0 0 10px;font-size:19px}
+  .sheet p{font-size:13.5px}
+  .share img{width:100%;border-radius:16px;border:1px solid var(--line);display:block}
+  @media (prefers-reduced-motion:reduce){*{animation-duration:.01ms!important;transition-duration:.01ms!important}}
+</style>
+</head>
+<body>
+<canvas id="confetti"></canvas>
+
+<div class="app">
+  <div class="topbar">
+    <div class="brand"><span class="dot"></span>GAYDAR&nbsp;9000</div>
+    <button class="ghost" id="aboutBtn">IS THIS REAL?</button>
+  </div>
+
+  <!-- 1. INTRO -->
+  <section class="screen on center grow" id="s-intro">
+    <div class="kicker">Model v9.0 · Peer reviewed by nobody</div>
+    <h1>The world's most <span class="prism">accurate</span> orientation scanner.</h1>
+    <p>Scan your face. Recite the calibration phrase. Our 400-billion-parameter neural engine returns a result in under three seconds.</p>
+    <div class="card" style="margin-bottom:18px">
+      <div class="row"><span>Accuracy</span><b>99.7%*</b></div>
+      <div class="row"><span>People scanned</span><b id="scanCount">4,182,006</b></div>
+      <div class="row"><span>Straight results to date</span><b style="color:var(--m)">0</b></div>
+      <div class="row"><span>Data uploaded</span><b>NONE</b></div>
+    </div>
+    <button class="btn" id="go">Begin scan</button>
+    <button class="btn2" id="aboutBtn2">*Explain that asterisk</button>
+    <div class="footnote">Entertainment only. Everything runs on your device — no photo, audio, or result is ever uploaded anywhere.</div>
+  </section>
+
+  <!-- 2. CAMERA -->
+  <section class="screen grow" id="s-cam">
+    <div class="kicker">Step 1 of 2 · Ocular capture</div>
+    <h2>Center your face</h2>
+    <p>Hold steady. The sensor is calibrating for ambient denim.</p>
+    <div class="stage" id="stage">
+      <video id="video" playsinline muted autoplay></video>
+      <canvas class="shot" id="shot" hidden></canvas>
+      <div class="reticle"></div>
+      <div class="cnt" id="cnt" hidden></div>
+      <div class="flash" id="flash"></div>
+      <div class="hint" id="camHint">ALIGN FACE WITHIN RETICLE</div>
+      <div class="nocam" id="nocam">
+        <div style="font-size:34px">📷</div>
+        <p style="margin:0">No camera available. Upload a photo instead — it stays on your device.</p>
+        <label class="btn" style="text-align:center;padding:13px">Choose a photo
+          <input type="file" id="file" accept="image/*" capture="user" hidden>
+        </label>
+        <button class="btn2" id="skipCam" style="margin:0">Scan without a photo</button>
+      </div>
+    </div>
+    <div class="grow"></div>
+    <button class="btn" id="snap" style="margin-top:16px">Capture</button>
+  </section>
+
+  <!-- 3. VOICE -->
+  <section class="screen grow" id="s-voice">
+    <div class="kicker">Step 2 of 2 · Vocal resonance</div>
+    <h2>Read this out loud</h2>
+    <p>Clearly, at a natural pace. Our formant engine is listening for shimmer.</p>
+    <div class="phrase" id="phrase">…</div>
+    <canvas class="wave" id="wave"></canvas>
+    <div class="lvl"><i id="lvlbar"></i></div>
+    <div class="rec" id="recLabel" hidden><b></b> RECORDING · <span id="recTime">0.0</span>s</div>
+    <div class="grow"></div>
+    <div class="footnote">Your voice is analyzed live in the browser and never recorded,<br>saved, or sent anywhere.</div>
+    <button class="btn" id="mic" style="margin-top:16px">Start recording</button>
+    <button class="btn2" id="skipMic">Skip — my voice is unavailable</button>
+  </section>
+
+  <!-- 4. ANALYSIS -->
+  <section class="screen grow" id="s-scan">
+    <div class="kicker">Analyzing</div>
+    <h2 id="scanTitle">Running the model</h2>
+    <div class="stage" id="scanStage" style="aspect-ratio:1/1;margin:10px 0 14px">
+      <canvas class="shot" id="scanShot"></canvas>
+      <div class="grid"></div>
+      <div class="nodes" id="nodes"></div>
+      <div class="scanline"></div>
+    </div>
+    <div class="bar"><i id="prog"></i></div>
+    <div class="status" id="status">Initializing…</div>
+    <div class="card" id="liveRows" style="margin-top:6px"></div>
+  </section>
+
+  <!-- 5. RESULT -->
+  <section class="screen grow" id="s-result">
+    <div class="verdict">
+      <div class="kicker" style="margin-bottom:4px">Analysis complete</div>
+      <div class="pct prism" id="pct">0<sup>%</sup></div>
+      <div class="word prism" id="word">GAY</div>
+      <div class="stamp" id="stamp">CONFIDENCE: ABSOLUTE</div>
+    </div>
+    <div class="card" id="resultRows" style="margin-top:18px"></div>
+    <div class="reveal" id="reveal">
+      <h3>Okay, here's how it works.</h3>
+      <p><span class="big">It doesn't.</span> There is no model. There's a random number between 84 and 99, and the word "GAY," which is hard-coded. The face scan and the voice recording never leave your device and are deleted the moment you close this page.</p>
+      <p>Every person who has ever used Gaydar 9000 got the same answer. So did the laptop it was built on. So did a houseplant. <span class="big">The scanner is the joke</span> — anything claiming to read who you are off your cheekbones is selling you something.</p>
+      <p style="color:var(--g)">Now go show it to someone who'll laugh.</p>
+    </div>
+    <div class="grow"></div>
+    <div class="footnote" style="margin-bottom:4px">Before you send this to anybody,<br>tap “How did it know?”</div>
+    <button class="btn" id="shareBtn" style="margin-top:16px">Get my result card</button>
+    <button class="btn2" id="revealBtn">How did it know?</button>
+    <button class="btn2" id="again">Scan someone else</button>
+  </section>
+</div>
+
+<!-- ABOUT SHEET -->
+<div class="sheet" id="sheet">
+  <div class="in">
+    <h3>No. It's a joke.</h3>
+    <p>Gaydar 9000 is a gag. It cannot detect anything. It returns the same verdict for every single person, every single time, with a random percentage attached for flavor.</p>
+    <p>Sexual orientation is not readable from a face or a voice. Research claiming otherwise has been repeatedly and thoroughly debunked, and the tech built on it has been used to hurt people. This app is a parody of that idea, not a version of it.</p>
+    <p><span class="big">Privacy:</span> the camera and microphone run entirely in your browser. No photo, no audio, no result, and no analytics are ever transmitted. There is no server. Close the tab and it's all gone.</p>
+    <p>If someone is using this to pressure or out you, it is not evidence of anything — it says "gay" for everybody, including the phone in your hand.</p>
+    <button class="btn2" id="closeSheet" style="margin-top:6px">Got it</button>
+  </div>
+</div>
+
+<!-- SHARE SHEET -->
+<div class="sheet" id="shareSheet">
+  <div class="in share">
+    <h3>Your certificate</h3>
+    <img id="cardImg" alt="Your Gaydar 9000 result card">
+    <button class="btn" id="saveCard" style="margin-top:12px">Save image</button>
+    <button class="btn2" id="closeShare">Back</button>
+    <p style="margin-top:12px;font-size:12px">If the save button doesn't do anything on your device, just screenshot it — that's what everyone does anyway.</p>
+  </div>
+</div>
+
+<script>
+(function(){
+"use strict";
+var $ = function(id){ return document.getElementById(id); };
+var screens = ["s-intro","s-cam","s-voice","s-scan","s-result"];
+function show(id){
+  screens.forEach(function(s){ $(s).classList.toggle("on", s===id); });
+  window.scrollTo(0,0);
+}
+
+/* ---------- state ---------- */
+var state = { photo:null, voice:0, spoke:false, seed:0, pct:0, metrics:[] };
+var stream=null, audioStream=null, audioCtx=null, analyser=null, rafWave=0;
+
+/* ---------- fake counter ---------- */
+(function(){
+  var el=$("scanCount"), n=4182006;
+  setInterval(function(){ n += 1 + Math.floor(Math.random()*3); el.textContent = n.toLocaleString(); }, 1400);
+})();
+
+/* ---------- about sheet ---------- */
+function openSheet(){ $("sheet").classList.add("on"); }
+$("aboutBtn").onclick = openSheet;
+$("aboutBtn2").onclick = openSheet;
+$("closeSheet").onclick = function(){ $("sheet").classList.remove("on"); };
+$("sheet").onclick = function(e){ if(e.target === $("sheet")) $("sheet").classList.remove("on"); };
+
+/* ---------- 1 -> 2 ---------- */
+$("go").onclick = function(){ show("s-cam"); startCamera(); };
+
+/* ---------- camera ---------- */
+function startCamera(){
+  var v = $("video");
+  if(!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia){ return camFail(); }
+  navigator.mediaDevices.getUserMedia({ video:{ facingMode:"user", width:{ideal:960}, height:{ideal:1280} }, audio:false })
+    .then(function(s){
+      stream = s; v.srcObject = s;
+      var p = v.play(); if(p && p.catch) p.catch(function(){});
+    })
+    .catch(camFail);
+}
+function camFail(){
+  $("nocam").classList.add("on");
+  $("snap").disabled = true;
+  $("camHint").hidden = true;
+}
+function stopCamera(){
+  if(stream){ stream.getTracks().forEach(function(t){ t.stop(); }); stream = null; }
+}
+
+$("file").onchange = function(e){
+  var f = e.target.files && e.target.files[0]; if(!f) return;
+  var r = new FileReader();
+  r.onload = function(){ drawImageToShot(r.result, function(){ toVoice(); }); };
+  r.readAsDataURL(f);
+};
+$("skipCam").onclick = function(){ makePlaceholder(); toVoice(); };
+
+function drawImageToShot(src, done){
+  var img = new Image();
+  img.onload = function(){
+    var c = $("shot"), W=720, H=960; c.width=W; c.height=H;
+    var g = c.getContext("2d");
+    var r = Math.max(W/img.width, H/img.height);
+    var w = img.width*r, h = img.height*r;
+    g.drawImage(img, (W-w)/2, (H-h)/2, w, h);
+    state.photo = c.toDataURL("image/jpeg", .85);
+    if(done) done();
+  };
+  img.onerror = function(){ makePlaceholder(); if(done) done(); };
+  img.src = src;
+}
+function makePlaceholder(){
+  var c = $("shot"); c.width=720; c.height=960;
+  var g = c.getContext("2d");
+  var gr = g.createLinearGradient(0,0,720,960);
+  gr.addColorStop(0,"#241a33"); gr.addColorStop(1,"#0f1a2b");
+  g.fillStyle = gr; g.fillRect(0,0,720,960);
+  g.fillStyle = "#ffffff22"; g.font = "700 44px ui-monospace,monospace";
+  g.textAlign = "center"; g.fillText("NO IMAGE", 360, 500);
+  state.photo = c.toDataURL("image/jpeg", .8);
+}
+
+$("snap").onclick = function(){
+  var v = $("video"), c = $("shot");
+  if(!v.videoWidth){ makePlaceholder(); return toVoice(); }
+  var W=720, H=960; c.width=W; c.height=H;
+  var g = c.getContext("2d");
+  var r = Math.max(W/v.videoWidth, H/v.videoHeight);
+  var w = v.videoWidth*r, h = v.videoHeight*r;
+  g.save(); g.translate(W,0); g.scale(-1,1);
+  g.drawImage(v, (W-w)/2, (H-h)/2, w, h);
+  g.restore();
+  state.photo = c.toDataURL("image/jpeg", .85);
+
+  $("flash").classList.add("go");
+  $("snap").disabled = true;
+  setTimeout(function(){ $("flash").classList.remove("go"); toVoice(); }, 480);
+};
+
+function toVoice(){
+  stopCamera();
+  pickPhrase();
+  show("s-voice");
+  idleWave();
+}
+
+/* a calm sine loop so the canvas reads as "sensor ready", not "broken" */
+var rafIdle = 0;
+function idleWave(){
+  var cv = $("wave"), g = cv.getContext("2d");
+  var dpr = Math.min(window.devicePixelRatio||1, 2);
+  cv.width = cv.clientWidth*dpr; cv.height = 88*dpr;
+  g.setTransform(dpr,0,0,dpr,0,0);
+  var W = cv.clientWidth, H = 88, t0 = performance.now();
+  cancelAnimationFrame(rafIdle);
+  (function f(now){
+    var t = (now - t0)/1000;
+    g.clearRect(0,0,W,H);
+    g.strokeStyle = "#282838"; g.lineWidth = 2; g.beginPath();
+    for(var x=0;x<=W;x+=3){
+      var y = H/2 + Math.sin(x/38 + t*1.8)*7*Math.sin(t*0.9 + x/260);
+      x ? g.lineTo(x,y) : g.moveTo(x,y);
+    }
+    g.stroke();
+    rafIdle = requestAnimationFrame(f);
+  })(t0);
+}
+
+/* ---------- voice ---------- */
+var PHRASES = [
+  "I have never once thought about the Roman Empire.",
+  "I am completely normal about musical theater.",
+  "My favorite color is a regular, standard color.",
+  "I have no opinion whatsoever about that font.",
+  "I sit in chairs the way chairs were designed to be sat in.",
+  "I do not know a single fact about any Muppet."
+];
+function pickPhrase(){
+  $("phrase").textContent = PHRASES[Math.floor(Math.random()*PHRASES.length)];
+}
+
+$("skipMic").onclick = function(){ state.spoke=false; state.voice=0.28; beginScan(); };
+
+$("mic").onclick = function(){
+  if(!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia){
+    $("mic").textContent = "Microphone unavailable — continuing"; 
+    setTimeout(function(){ state.voice=0.3; beginScan(); }, 700); return;
+  }
+  $("mic").disabled = true; $("mic").textContent = "Listening…";
+  navigator.mediaDevices.getUserMedia({ audio:true }).then(function(s){
+    audioStream = s;
+    var AC = window.AudioContext || window.webkitAudioContext;
+    audioCtx = new AC();
+    var src = audioCtx.createMediaStreamSource(s);
+    analyser = audioCtx.createAnalyser();
+    analyser.fftSize = 1024;
+    src.connect(analyser);
+    state.spoke = true;
+    $("recLabel").hidden = false;
+    runWave(4000, function(){
+      stopAudio();
+      beginScan();
+    });
+  }).catch(function(){
+    $("mic").disabled = false;
+    $("mic").textContent = "Mic blocked — tap to continue anyway";
+    $("mic").onclick = function(){ state.voice=0.3; beginScan(); };
+  });
+};
+
+function runWave(ms, done){
+  cancelAnimationFrame(rafIdle);
+  var cv = $("wave"), g = cv.getContext("2d");
+  var dpr = Math.min(window.devicePixelRatio||1, 2);
+  cv.width = cv.clientWidth*dpr; cv.height = 88*dpr; g.setTransform(dpr,0,0,dpr,0,0);
+  var W = cv.clientWidth, H = 88;
+  var buf = new Uint8Array(analyser.fftSize);
+  var t0 = performance.now(), peak = 0, sum = 0, n = 0;
+  (function frame(now){
+    var el = now - t0;
+    analyser.getByteTimeDomainData(buf);
+    g.clearRect(0,0,W,H);
+    var grad = g.createLinearGradient(0,0,W,0);
+    grad.addColorStop(0,"#ff4d9d"); grad.addColorStop(.5,"#ffd93d"); grad.addColorStop(1,"#3ddcff");
+    g.strokeStyle = grad; g.lineWidth = 2.2; g.lineJoin="round"; g.beginPath();
+    var amp = 0;
+    for(var i=0;i<buf.length;i++){
+      var vv = (buf[i]-128)/128;
+      amp = Math.max(amp, Math.abs(vv));
+      var x = i/(buf.length-1)*W, y = H/2 + vv*(H/2-6);
+      i ? g.lineTo(x,y) : g.moveTo(x,y);
+    }
+    g.stroke();
+    peak = Math.max(peak, amp); sum += amp; n++;
+    $("lvlbar").style.width = Math.min(100, amp*260) + "%";
+    $("recTime").textContent = (el/1000).toFixed(1);
+    if(el < ms){ rafWave = requestAnimationFrame(frame); }
+    else {
+      state.voice = Math.min(1, (sum/Math.max(n,1))*6 + peak*0.4);
+      $("recLabel").hidden = true;
+      done();
+    }
+  })(t0);
+}
+function stopAudio(){
+  cancelAnimationFrame(rafWave); cancelAnimationFrame(rafIdle);
+  if(audioStream){ audioStream.getTracks().forEach(function(t){ t.stop(); }); audioStream=null; }
+  if(audioCtx && audioCtx.close){ audioCtx.close(); audioCtx=null; }
+}
+
+/* ---------- the "model" ---------- */
+var METRICS = [
+  "Cheekbone vector alignment",
+  "Vocal shimmer coefficient",
+  "Ambient denim density",
+  "Mitochondrial vibe index",
+  "Posture / furniture affinity",
+  "Spectral hairline entropy",
+  "Roman Empire proximity",
+  "Subdermal playlist echo"
+];
+function hashSeed(){
+  var s = 2166136261;
+  var p = state.photo || "x";
+  for(var i=0;i<p.length;i+=97){ s ^= p.charCodeAt(i); s = Math.imul(s,16777619); }
+  s ^= Math.floor(state.voice*100000); s = Math.imul(s,16777619);
+  return (s>>>0);
+}
+function rnd(seed,i){
+  var x = Math.imul(seed ^ (i*2654435761), 2246822519);
+  x ^= x >>> 15;
+  return ((x>>>0) % 10000) / 10000;
+}
+function computeResult(){
+  var seed = hashSeed();
+  state.seed = seed;
+  state.pct = 84 + Math.floor(rnd(seed,1)*16);          /* 84–99, never 100 */
+  var picked = METRICS.slice().sort(function(a,b){
+    return rnd(seed, a.length) - rnd(seed, b.length+7);
+  }).slice(0,5);
+  state.metrics = picked.map(function(name,i){
+    return { name:name, val: (62 + rnd(seed,i+3)*37).toFixed(1) + "%" };
+  });
+}
+
+/* ---------- 4. analysis theatre ---------- */
+var STEPS = [
+  "Loading 400B-parameter weights…",
+  "Isolating facial landmarks…",
+  "Measuring cheekbone vector…",
+  "Cross-referencing denim database…",
+  "Running vocal formant analysis…",
+  "Consulting the council…",
+  "Rounding aggressively…",
+  "Finalizing verdict…"
+];
+function beginScan(){
+  stopAudio();
+  computeResult();
+  show("s-scan");
+
+  var sc = $("scanShot");
+  var img = new Image();
+  img.onload = function(){
+    sc.width = 600; sc.height = 600;
+    var g = sc.getContext("2d");
+    var r = Math.max(600/img.width, 600/img.height);
+    g.drawImage(img, (600-img.width*r)/2, (600-img.height*r)/2, img.width*r, img.height*r);
+  };
+  img.src = state.photo || "";
+
+  /* landmark dots */
+  var nodes = $("nodes"); nodes.innerHTML = "";
+  for(var i=0;i<16;i++){
+    (function(i){
+      setTimeout(function(){
+        var d = document.createElement("div");
+        d.className = "node";
+        d.style.left = (18 + rnd(state.seed,i)*64) + "%";
+        d.style.top  = (14 + rnd(state.seed,i+40)*68) + "%";
+        nodes.appendChild(d);
+      }, 220 + i*95);
+    })(i);
+  }
+
+  /* progress + status */
+  var rows = $("liveRows"); rows.innerHTML = "";
+  var t0 = performance.now(), DUR = 4200, si = -1, mi = 0;
+  (function tick(now){
+    var p = Math.min(1, (now - t0)/DUR);
+    $("prog").style.width = (p*100).toFixed(1) + "%";
+    var idx = Math.min(STEPS.length-1, Math.floor(p*STEPS.length));
+    if(idx !== si){ si = idx; $("status").textContent = STEPS[idx]; }
+    var want = Math.floor(p * state.metrics.length);
+    while(mi < want && mi < state.metrics.length){
+      var m = state.metrics[mi++];
+      var el = document.createElement("div");
+      el.className = "row";
+      el.innerHTML = '<span></span><b></b>';
+      el.firstChild.textContent = m.name;
+      el.lastChild.textContent = m.val;
+      rows.appendChild(el);
+    }
+    if(p < 1) requestAnimationFrame(tick);
+    else setTimeout(showResult, 380);
+  })(t0);
+}
+
+/* ---------- 5. result ---------- */
+function showResult(){
+  show("s-result");
+  $("reveal").classList.remove("on");
+  var rows = $("resultRows"); rows.innerHTML = "";
+  state.metrics.forEach(function(m){
+    var el = document.createElement("div");
+    el.className = "row";
+    el.innerHTML = '<span></span><b></b>';
+    el.firstChild.textContent = m.name;
+    el.lastChild.textContent = m.val;
+    rows.appendChild(el);
+  });
+  var extra = document.createElement("div");
+  extra.className = "row";
+  extra.innerHTML = '<span>Margin of error</span><b style="color:var(--m)">TOTAL</b>';
+  rows.appendChild(extra);
+
+  /* count up */
+  var el = $("pct"), t0 = performance.now(), DUR = 1100;
+  (function up(now){
+    var p = Math.min(1,(now-t0)/DUR);
+    var e = 1 - Math.pow(1-p, 3);
+    el.innerHTML = Math.round(state.pct*e) + "<sup>%</sup>";
+    if(p<1) requestAnimationFrame(up);
+  })(t0);
+  confetti();
+}
+
+$("revealBtn").onclick = function(){
+  var r = $("reveal");
+  r.classList.toggle("on");
+  if(r.classList.contains("on")){
+    $("revealBtn").textContent = "Hide the truth";
+    setTimeout(function(){ r.scrollIntoView({behavior:"smooth", block:"nearest"}); }, 60);
+  } else {
+    $("revealBtn").textContent = "How did it know?";
+  }
+};
+
+$("again").onclick = function(){
+  state.photo=null; state.voice=0; state.spoke=false;
+  $("snap").disabled=false; $("mic").disabled=false; $("mic").textContent="Start recording";
+  $("nocam").classList.remove("on"); $("camHint").hidden=false;
+  $("reveal").classList.remove("on"); $("revealBtn").textContent="How did it know?";
+  show("s-cam"); startCamera();
+};
+
+/* ---------- confetti ---------- */
+function confetti(){
+  var cv = $("confetti"), g = cv.getContext("2d");
+  var dpr = Math.min(window.devicePixelRatio||1,2);
+  cv.width = innerWidth*dpr; cv.height = innerHeight*dpr;
+  cv.style.width = innerWidth+"px"; cv.style.height = innerHeight+"px";
+  g.setTransform(dpr,0,0,dpr,0,0);
+  var cols = ["#ff4d9d","#ff9d4d","#ffd93d","#5ef0a8","#3ddcff","#a97dff"];
+  var ps = [];
+  for(var i=0;i<110;i++){
+    ps.push({ x:Math.random()*innerWidth, y:-20-Math.random()*innerHeight*.5,
+      vx:(Math.random()-.5)*1.6, vy:2+Math.random()*3.4,
+      w:5+Math.random()*7, h:8+Math.random()*10,
+      r:Math.random()*6.3, vr:(Math.random()-.5)*.24,
+      c:cols[i%cols.length] });
+  }
+  var t0 = performance.now();
+  (function f(now){
+    var life = now - t0;
+    g.clearRect(0,0,innerWidth,innerHeight);
+    ps.forEach(function(p){
+      p.x+=p.vx; p.y+=p.vy; p.r+=p.vr; p.vy+=0.012;
+      g.save(); g.translate(p.x,p.y); g.rotate(p.r);
+      g.globalAlpha = Math.max(0, 1 - life/3400);
+      g.fillStyle = p.c; g.fillRect(-p.w/2,-p.h/2,p.w,p.h); g.restore();
+    });
+    if(life < 3400) requestAnimationFrame(f);
+    else g.clearRect(0,0,innerWidth,innerHeight);
+  })(t0);
+}
+
+/* ---------- share card ---------- */
+function buildCard(cb){
+  var W=1080, H=1350;
+  var c = document.createElement("canvas"); c.width=W; c.height=H;
+  var g = c.getContext("2d");
+  g.fillStyle="#0b0b12"; g.fillRect(0,0,W,H);
+
+  function finish(){
+    /* prism bar */
+    var gr = g.createLinearGradient(0,0,W,0);
+    ["#ff4d9d","#ff9d4d","#ffd93d","#5ef0a8","#3ddcff","#a97dff"].forEach(function(col,i,a){
+      gr.addColorStop(i/(a.length-1), col);
+    });
+    g.fillStyle = gr; g.fillRect(0,0,W,14);
+
+    g.textAlign="center";
+    g.fillStyle="#9a9ab0"; g.font='600 30px ui-monospace,monospace';
+    g.fillText("GAYDAR 9000  ·  OFFICIAL RESULT", W/2, 92);
+
+    g.fillStyle = gr;
+    g.font='900 300px ui-monospace,monospace';
+    g.fillText(state.pct + "%", W/2, 1055);
+    g.font='900 108px -apple-system,Helvetica,Arial,sans-serif';
+    g.fillText("GAY", W/2, 1165);
+
+    g.fillStyle="#63637a"; g.font='500 27px ui-monospace,monospace';
+    g.fillText("100% OF PEOPLE TESTED GET THIS RESULT.", W/2, 1235);
+    g.fillText("IT IS A JOKE APP. IT MEASURES NOTHING.", W/2, 1275);
+    cb(c.toDataURL("image/png"));
+  }
+
+  if(state.photo){
+    var img = new Image();
+    img.onload = function(){
+      var S=560, x=(W-S)/2, y=140;
+      g.save();
+      g.beginPath(); g.arc(W/2, y+S/2, S/2, 0, 6.2832); g.clip();
+      var r = Math.max(S/img.width, S/img.height);
+      g.drawImage(img, W/2-img.width*r/2, y+S/2-img.height*r/2, img.width*r, img.height*r);
+      g.restore();
+      g.strokeStyle="#3ddcff"; g.lineWidth=6;
+      g.beginPath(); g.arc(W/2, y+S/2, S/2+8, 0, 6.2832); g.stroke();
+      finish();
+    };
+    img.onerror = finish;
+    img.src = state.photo;
+  } else finish();
+}
+
+$("shareBtn").onclick = function(){
+  buildCard(function(url){
+    $("cardImg").src = url;
+    $("shareSheet").classList.add("on");
+    $("saveCard").onclick = function(){
+      if(navigator.canShare && window.fetch){
+        fetch(url).then(function(r){ return r.blob(); }).then(function(b){
+          var f = new File([b], "gaydar-9000.png", {type:"image/png"});
+          if(navigator.canShare({files:[f]})) return navigator.share({files:[f], text:"99.7% accurate*"});
+          throw 0;
+        }).catch(fallbackSave);
+      } else fallbackSave();
+      function fallbackSave(){
+        var a = document.createElement("a");
+        a.href = url; a.download = "gaydar-9000.png";
+        document.body.appendChild(a); a.click(); a.remove();
+      }
+    };
+  });
+};
+$("closeShare").onclick = function(){ $("shareSheet").classList.remove("on"); };
+$("shareSheet").onclick = function(e){ if(e.target===$("shareSheet")) $("shareSheet").classList.remove("on"); };
+
+window.addEventListener("pagehide", function(){ stopCamera(); stopAudio(); });
+})();
+</script>
+</body>
+</html>

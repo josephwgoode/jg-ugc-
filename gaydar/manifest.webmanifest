@@ -1,0 +1,16 @@
+{
+  "name": "Gaydar 9000 — Certified Nonsense",
+  "short_name": "Gaydar 9000",
+  "description": "A joke app. It scans your face and voice with entirely fake science and tells absolutely everyone the same thing.",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#0b0b12",
+  "theme_color": "#0b0b12",
+  "categories": ["entertainment"],
+  "icons": [
+    { "src": "icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" },
+    { "src": "icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "maskable" }
+  ]
+}
