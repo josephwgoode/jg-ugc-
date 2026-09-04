@@ -105,6 +105,9 @@
   .verified{font:600 11px/1 var(--mono);letter-spacing:.08em;color:var(--g);margin-top:12px;
     text-align:center;min-height:13px}
   .verified.miss{color:var(--y)}
+  .urlout{margin-top:9px;padding:11px 12px;background:var(--panel2);border:1px solid var(--line);
+    border-radius:12px;font:600 11px/1.5 var(--mono);color:var(--c);word-break:break-all;
+    -webkit-user-select:all;user-select:all}
   .reticle.lock{border-style:solid;border-color:var(--g);box-shadow:0 0 0 9999px #0b0b1255}
   .rec{display:flex;align-items:center;gap:8px;justify-content:center;font:600 12px/1 var(--mono);
     letter-spacing:.12em;color:var(--muted);margin-top:12px}
@@ -197,10 +200,11 @@
       <div class="hint" id="camHint">ALIGN FACE WITHIN RETICLE</div>
       <div class="nocam" id="nocam">
         <div style="font-size:34px">📷</div>
-        <p style="margin:0">No camera available. Upload a photo instead — it stays on your device.</p>
+        <p style="margin:0" id="nocamMsg">No camera available. Upload a photo instead — it stays on your device.</p>
         <label class="btn" style="text-align:center;padding:13px">Choose a photo
           <input type="file" id="file" accept="image/*" capture="user" hidden>
         </label>
+        <button class="btn2" id="openTabCam" style="margin:0" hidden>Open in its own tab</button>
         <button class="btn2" id="skipCam" style="margin:0">Scan without a photo</button>
       </div>
     </div>
@@ -226,6 +230,8 @@
     <div class="grow"></div>
     <div class="footnote">Your voice is analyzed live in the browser and never recorded,<br>saved, or sent anywhere.</div>
     <button class="btn" id="mic" style="margin-top:16px">Start recording</button>
+    <button class="btn2" id="openTab" hidden>Open in its own tab to enable the mic</button>
+    <div class="urlout" id="urlOut" hidden></div>
     <button class="btn2" id="skipMic">Skip — my voice is unavailable</button>
   </section>
 
@@ -405,22 +411,80 @@ $("go").onclick = function(){
   startCamera();
 };
 
+/* ---------- why can't we reach the camera or mic? ----------
+   "Unavailable" is a useless thing to tell someone. The common case isn't a
+   broken device, it's that the page is embedded in an iframe whose host never
+   granted media access — a cross-origin frame with no allow="microphone" gets
+   NotAllowedError, and featurePolicy.allowsFeature() reports it up front, so
+   we can say something true and offer a way out instead of guessing. */
+function blockReason(kind){
+  if(!window.isSecureContext) return "insecure";
+  if(!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) return "unsupported";
+  try{
+    var fp = document.featurePolicy || document.permissionsPolicy;
+    if(fp && typeof fp.allowsFeature === "function" && !fp.allowsFeature(kind)) return "embedded";
+  }catch(e){}
+  return null;
+}
+function reasonFromError(err, kind){
+  var n = err && err.name;
+  if(n === "NotFoundError" || n === "OverconstrainedError" || n === "DevicesNotFoundError") return "nodevice";
+  if(n === "NotReadableError" || n === "TrackStartError") return "busy";
+  if(n === "SecurityError") return "insecure";
+  if(n === "NotAllowedError") return blockReason(kind) === "embedded" ? "embedded" : "denied";
+  return "denied";
+}
+var EXPLAIN = {
+  embedded:   "This page is embedded in another site, and that site hasn't given it microphone access. Open it in its own browser tab and it will work.",
+  denied:     "Microphone permission was declined. Allow it in your browser's site settings — the padlock in the address bar — then tap again.",
+  nodevice:   "No microphone found on this device.",
+  busy:       "Something else is using the microphone. Close other tabs or apps using it, then tap again.",
+  insecure:   "Microphones only work over HTTPS or on localhost. This page is being served over plain HTTP.",
+  unsupported:"This browser doesn't support microphone capture."
+};
+var EXPLAIN_CAM = {
+  embedded:   "This page is embedded in another site, and that site hasn't given it camera access. Open it in its own browser tab, or upload a photo instead — it stays on your device.",
+  denied:     "Camera permission was declined. Upload a photo instead, or allow the camera in your browser's site settings.",
+  nodevice:   "No camera found. Upload a photo instead — it stays on your device.",
+  busy:       "Something else is using the camera. Upload a photo instead.",
+  insecure:   "Cameras only work over HTTPS or on localhost. Upload a photo instead.",
+  unsupported:"This browser doesn't support camera capture. Upload a photo instead."
+};
+function offerNewTab(btnId){
+  var b = $(btnId);
+  b.hidden = false;
+  b.onclick = function(){
+    var w = null;
+    try{ w = window.open(location.href, "_blank", "noopener"); }catch(e){}
+    if(!w){
+      /* Sandboxed frames block popups. Show the address so it can be copied. */
+      var out = $("urlOut");
+      out.hidden = false;
+      out.textContent = location.href;
+      b.textContent = "Copy this address into a new tab ↑";
+    }
+  };
+}
+
 /* ---------- camera ---------- */
 function startCamera(){
   var v = $("video");
-  if(!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia){ return camFail(); }
+  var why = blockReason("camera");
+  if(why) return camFail(why);
   navigator.mediaDevices.getUserMedia({ video:{ facingMode:"user", width:{ideal:960}, height:{ideal:1280} }, audio:false })
     .then(function(s){
       stream = s; v.srcObject = s;
       var p = v.play(); if(p && p.catch) p.catch(function(){});
       startLock();
     })
-    .catch(camFail);
+    .catch(function(e){ camFail(reasonFromError(e, "camera")); });
 }
-function camFail(){
+function camFail(why){
   $("nocam").classList.add("on");
   $("snap").disabled = true;
   $("camHint").hidden = true;
+  $("nocamMsg").textContent = EXPLAIN_CAM[why] || EXPLAIN_CAM.denied;
+  if(why === "embedded") offerNewTab("openTabCam");
 }
 function stopCamera(){
   stopLock();
@@ -724,7 +788,8 @@ $("skipMic").onclick = function(){ state.spoke=false; state.real=null; beginScan
 
 function micStart(){
   if(listening) return finishVoice(true);
-  if(!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) return micFail();
+  var why = blockReason("microphone");
+  if(why) return micFail(why);
   $("mic").disabled = true; $("mic").textContent = "Opening microphone…";
   navigator.mediaDevices.getUserMedia({ audio:{ echoCancellation:false, noiseSuppression:false, autoGainControl:false } })
     .then(function(s){
@@ -741,13 +806,25 @@ function micStart(){
       $("recLabel").hidden = false;
       listen();
     })
-    .catch(micFail);
+    .catch(function(e){ micFail(reasonFromError(e, "microphone")); });
 }
 $("mic").onclick = micStart;
-function micFail(){
+function micFail(why){
   $("mic").disabled = false;
-  $("mic").textContent = "Microphone unavailable — continue anyway";
-  $("mic").onclick = function(){ state.spoke=false; state.real=null; beginScan(); };
+  $("voiceHelp").textContent = EXPLAIN[why] || EXPLAIN.denied;
+  if(why === "embedded"){
+    offerNewTab("openTab");
+    $("mic").textContent = "Try the microphone anyway";
+    $("mic").onclick = micStart;               /* still retryable */
+  } else if(why === "denied" || why === "busy"){
+    $("mic").textContent = "Try again";
+    $("mic").onclick = micStart;
+  } else {
+    $("mic").textContent = "Scan without my voice";
+    $("mic").onclick = function(){ state.spoke=false; state.real=null; beginScan(); };
+  }
+  $("asrLine").className = "verified miss";
+  $("asrLine").textContent = "VOCAL SENSOR OFFLINE · SCAN STILL WORKS";
 }
 
 var listening = false, phase = "wait", tOpen = 0, lastDet = 0, det = null;
@@ -1042,6 +1119,8 @@ $("again").onclick = function(){
   $("mic").disabled=false; $("mic").textContent="Start recording"; $("mic").onclick=micStart;
   $("recLabel").hidden=true;
   $("voiceHelp").textContent="Tap start, then read the line. The scanner waits for you to begin and stops on its own when you finish.";
+  $("openTab").hidden=true; $("openTabCam").hidden=true; $("urlOut").hidden=true;
+  $("openTab").textContent="Open in its own tab to enable the mic";
   $("nocam").classList.remove("on"); $("camHint").hidden=false;
   $("reveal").classList.remove("on"); $("revealBtn").textContent="How did it know?";
   show("s-cam"); startCamera();
